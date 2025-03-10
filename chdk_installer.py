@@ -9,11 +9,13 @@ import tempfile
 # URL pro stažení CHDK verzí nebo adresář s modely
 CHDK_MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chdk_models")
 
-# Odkaz na CHDK download
-CHDK_DOWNLOAD_URL = "https://app.assembla.com/spaces/chdk/git/source/stable_version"
+# Odkaz na CHDK downloads
+CHDK_DOWNLOAD_URL = "https://www.mighty-hoernsche.de/"
 
 def list_available_models():
     """Vrací seznam dostupných modelů fotoaparátů Canon s CHDK"""
+    # Tato funkce je zde zachována pro zpětnou kompatibilitu
+    # V nové verzi aplikace už není potřeba
     # Pokud máme lokální adresář s modely
     if os.path.exists(CHDK_MODELS_DIR) and os.path.isdir(CHDK_MODELS_DIR):
         models = []
@@ -54,6 +56,20 @@ def list_available_models():
 def install_chdk(drive_letter, model_name, custom_path=None):
     """
     Instaluje CHDK na vybranou SD kartu pro daný model fotoaparátu
+    (Ponecháno pro zpětnou kompatibilitu)
+    """
+    if custom_path and os.path.exists(custom_path):
+        return install_firmware_file(drive_letter, custom_path)
+    
+    raise ValueError("Tato metoda je zastaralá. Použijte install_firmware_file.")
+
+def install_firmware_file(drive_letter, firmware_path):
+    """
+    Instaluje CHDK firmware ze staženého souboru na SD kartu
+    
+    Args:
+        drive_letter (str): Písmeno disku (např. "E:")
+        firmware_path (str): Cesta k souboru s CHDK firmwarem
     """
     if not drive_letter or not drive_letter.endswith(':'):
         raise ValueError("Neplatné označení disku")
@@ -64,31 +80,56 @@ def install_chdk(drive_letter, model_name, custom_path=None):
     if not os.path.exists(drive_path):
         raise FileNotFoundError(f"Disk {drive_letter} není dostupný")
     
-    # Pokud je zadána vlastní cesta
-    if custom_path and os.path.exists(custom_path):
-        source_path = custom_path
-    else:
-        # Použijeme vestavěné CHDK pro daný model
-        model_dir = model_name.replace(" ", "_").lower()
-        source_path = os.path.join(CHDK_MODELS_DIR, model_dir)
-        
-        # Pokud nemáme lokální soubory, pokusíme se stáhnout
-        if not os.path.exists(source_path):
-            source_path = download_chdk_for_model(model_name, drive_path)
+    # Zkontrolujeme, zda existuje soubor s firmwarem
+    if not os.path.exists(firmware_path):
+        raise FileNotFoundError(f"Soubor s firmwarem nebyl nalezen: {firmware_path}")
     
     # Vytvoříme CHDK adresář na SD kartě
     chdk_dir = os.path.join(drive_path, "CHDK")
     os.makedirs(chdk_dir, exist_ok=True)
     
-    # Zkopírujeme soubory
-    if os.path.isdir(source_path):
-        copy_directory_contents(source_path, chdk_dir)
+    # Pokud je to ZIP soubor, extrahujeme ho
+    if firmware_path.lower().endswith('.zip'):
+        extract_firmware_zip(firmware_path, chdk_dir)
+    # Jinak zkopírujeme celou složku (pokud je to adresář)
+    elif os.path.isdir(firmware_path):
+        copy_directory_contents(firmware_path, chdk_dir)
+    # Nebo zkopírujeme samostatný soubor
     else:
-        raise FileNotFoundError(f"Nenalezeny soubory CHDK pro model {model_name}")
+        shutil.copy2(firmware_path, os.path.join(chdk_dir, os.path.basename(firmware_path)))
+
+def extract_firmware_zip(zip_path, destination):
+    """
+    Extrahuje obsah ZIP souboru s firmwarem CHDK do cílové složky
+    """
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as z:
+            z.extractall(destination)
+    except zipfile.BadZipFile:
+        raise ValueError(f"Soubor {zip_path} není platný ZIP archiv")
+    except Exception as e:
+        raise RuntimeError(f"Chyba při extrakci souboru: {str(e)}")
+
+def copy_directory_contents(src_dir, dst_dir):
+    """Zkopíruje obsah adresáře src_dir do dst_dir"""
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+    
+    for item in os.listdir(src_dir):
+        src_path = os.path.join(src_dir, item)
+        dst_path = os.path.join(dst_dir, item)
+        
+        if os.path.isdir(src_path):
+            # Rekurzivní kopírování adresářů
+            copy_directory_contents(src_path, dst_path)
+        else:
+            # Kopírování souborů
+            shutil.copy2(src_path, dst_path)
 
 def download_chdk_for_model(model_name, destination):
     """
     Stáhne CHDK soubory pro daný model
+    (Ponecháno pro zpětnou kompatibilitu)
     """
     # Vytvoříme dočasný adresář
     temp_dir = tempfile.mkdtemp()
@@ -106,19 +147,3 @@ def download_chdk_for_model(model_name, destination):
         f.write('-- Example CHDK script\nprint("Hello from CHDK!")')
     
     return temp_dir
-
-def copy_directory_contents(src_dir, dst_dir):
-    """Zkopíruje obsah adresáře src_dir do dst_dir"""
-    if not os.path.exists(dst_dir):
-        os.makedirs(dst_dir)
-    
-    for item in os.listdir(src_dir):
-        src_path = os.path.join(src_dir, item)
-        dst_path = os.path.join(dst_dir, item)
-        
-        if os.path.isdir(src_path):
-            # Rekurzivní kopírování adresářů
-            copy_directory_contents(src_path, dst_path)
-        else:
-            # Kopírování souborů
-            shutil.copy2(src_path, dst_path)

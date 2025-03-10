@@ -52,16 +52,26 @@ def make_bootable(drive_letter):
     
     drive_path = f"{drive_letter}\\"
     
-    # Vytvoření DISKBOOT.BIN souboru (prázdný soubor)
     try:
-        # Kontrola, zda již existuje
+        # Vytvoření souboru BOOTDISK.BIN (pro bootování)
         boot_file_path = os.path.join(drive_path, 'BOOTDISK.BIN')
         if not os.path.exists(boot_file_path):
-            with open(boot_file_path, 'w') as f:
-                pass  # Vytvoření prázdného souboru
+            with open(boot_file_path, 'wb') as f:
+                # Vytvoříme prázdný soubor
+                f.write(b'')
+            
+            # Nastavení atributu skrytý (pokud selže, pokračujeme)
+            try:
+                os.system(f'attrib +h "{boot_file_path}"')
+            except:
+                pass  # Ignorovat chyby při nastavení atributu
         
-        # Nastavení atributu souboru
-        os.system(f'attrib +h {boot_file_path}')
+        # Vytvoření složky DCIM, pokud neexistuje (požadováno některými fotoaparáty)
+        dcim_path = os.path.join(drive_path, 'DCIM')
+        if not os.path.exists(dcim_path):
+            os.makedirs(dcim_path, exist_ok=True)
+            
+        return True
     except Exception as e:
         raise RuntimeError(f"Nepodařilo se nastavit bootovatelnost: {str(e)}")
 
