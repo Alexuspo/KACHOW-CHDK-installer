@@ -80,7 +80,6 @@ pro fotoaparáty Canon, který rozšiřuje jejich možnosti.
 © 2025 Alexuspo""",
     "visit_chdk": "Navštivte oficiální web CHDK",
     "github_link": "GitHub: KACHOW-CHDK-installer",
-    "created_for": "Vytvořeno pro skautský oddíl",
     
     # Dialog výběru jazyka
     "language_title": "Výběr jazyka | Language Selection",
@@ -165,7 +164,6 @@ for Canon cameras that extends their capabilities.
 © 2025 Alexuspo""",
     "visit_chdk": "Visit the official CHDK website",
     "github_link": "GitHub: KACHOW-CHDK-installer",
-    "created_for": "Created for the scout group",
     
     # Language selection dialog
     "language_title": "Language Selection | Výběr jazyka",

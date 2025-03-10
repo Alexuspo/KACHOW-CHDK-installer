@@ -4,11 +4,18 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from sd_operations import get_drives, format_drive_to_fat32, make_bootable
 from chdk_installer import install_chdk, list_available_models, install_firmware_file
+from language_selector import select_language
+from languages import CZECH, ENGLISH
 
 class CHDKInstallerApp:
-    def __init__(self, root):
+    def __init__(self, root, language='cs'):
         self.root = root
-        self.root.title("KACHOW CHDK Installer")
+        
+        # Nastavení jazyka
+        self.language = language
+        self.strings = CZECH if language == 'cs' else ENGLISH
+        
+        self.root.title(self.strings["app_title"])
         self.root.geometry("650x580")
         self.root.resizable(True, True)
         
@@ -89,13 +96,11 @@ class CHDKInstallerApp:
         except:
             pass  # Ignorovat pokud logo není k dispozici
         
-        title_label = ttk.Label(header_frame, text="KACHOW CHDK Installer", style="Header.TLabel")
+        title_label = ttk.Label(header_frame, text=self.strings["app_title"], style="Header.TLabel")
         title_label.pack(side=tk.LEFT)
         
         # Uvítací zpráva / krátký popis
-        welcome_text = ("Vítejte v instalátoru KACHOW CHDK! Tento nástroj vám pomůže připravit SD kartu "
-                      "s firmwarem CHDK pro váš fotoaparát Canon.")
-        welcome_label = ttk.Label(main_frame, text=welcome_text, wraplength=600, 
+        welcome_label = ttk.Label(main_frame, text=self.strings["welcome_text"], wraplength=600, 
                                  justify="center", padding=(0, 5))
         welcome_label.pack(fill=tk.X, pady=5)
         
@@ -105,15 +110,15 @@ class CHDKInstallerApp:
         
         # Záložka 1: Instalace
         install_frame = ttk.Frame(notebook, padding=15)
-        notebook.add(install_frame, text=" Instalace CHDK ")
+        notebook.add(install_frame, text=self.strings["tab_install"])
         
         # Záložka 2: Nápověda
         help_frame = ttk.Frame(notebook, padding=15)
-        notebook.add(help_frame, text=" Nápověda ")
+        notebook.add(help_frame, text=self.strings["tab_help"])
         
         # Záložka 3: O aplikaci
         about_frame = ttk.Frame(notebook, padding=15)
-        notebook.add(about_frame, text=" O aplikaci ")
+        notebook.add(about_frame, text=self.strings["tab_about"])
         
         # Obsah záložky Instalace
         self.setup_install_tab(install_frame)
@@ -133,28 +138,28 @@ class CHDKInstallerApp:
                                       variable=self.progress_var, length=100)
         progress_bar.pack(side=tk.TOP, fill=tk.X, pady=(0, 5))
         
-        self.status_var = tk.StringVar(value="Připraven")
+        self.status_var = tk.StringVar(value=self.strings["ready"])
         status_bar = ttk.Label(status_frame, textvariable=self.status_var, 
                               relief=tk.SUNKEN, anchor=tk.W, padding=(5, 2))
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
         
     def setup_install_tab(self, parent_frame):
         # SD Card selection frame
-        sd_frame = ttk.LabelFrame(parent_frame, text="Krok 1: Výběr SD karty", padding=10)
+        sd_frame = ttk.LabelFrame(parent_frame, text=self.strings["step1_title"], padding=10)
         sd_frame.pack(fill=tk.X, pady=5)
         
         # Drives selection and refresh
         drive_frame = ttk.Frame(sd_frame)
         drive_frame.pack(fill=tk.X, pady=5)
         
-        sd_label = ttk.Label(drive_frame, text="Dostupné SD karty:")
+        sd_label = ttk.Label(drive_frame, text=self.strings["available_cards"])
         sd_label.pack(side=tk.LEFT, padx=(0, 10))
         
         self.drive_combobox = ttk.Combobox(drive_frame, state="readonly", width=10)
         self.drive_combobox.pack(side=tk.LEFT, padx=(0, 5))
         
-        refresh_button = ttk.Button(drive_frame, text="Obnovit", 
-                                   command=self.refresh_drives, style="Refresh.TButton")
+        refresh_button = ttk.Button(drive_frame, text=self.strings["refresh"], 
+                                  command=self.refresh_drives, style="Refresh.TButton")
         refresh_button.pack(side=tk.LEFT)
         
         # Format checkbox
@@ -162,84 +167,67 @@ class CHDKInstallerApp:
         format_frame.pack(fill=tk.X, pady=5)
         
         self.format_var = tk.BooleanVar(value=True)
-        format_check = ttk.Checkbutton(format_frame, text="Formátovat SD kartu (FAT32)", variable=self.format_var)
+        format_check = ttk.Checkbutton(format_frame, text=self.strings["format_card"], variable=self.format_var)
         format_check.pack(side=tk.LEFT)
         
         # Warning label
-        warning_text = "VAROVÁNÍ: Formátování smaže všechna data z vybrané SD karty!"
-        warning_label = ttk.Label(sd_frame, text=warning_text, style="Warning.TLabel", wraplength=550)
+        warning_label = ttk.Label(sd_frame, text=self.strings["format_warning"],
+                               style="Warning.TLabel", wraplength=550)
         warning_label.pack(fill=tk.X, pady=5)
         
         # CHDK Selection frame
-        chdk_frame = ttk.LabelFrame(parent_frame, text="Krok 2: Výběr firmware CHDK", padding=10)
+        chdk_frame = ttk.LabelFrame(parent_frame, text=self.strings["step2_title"], padding=10)
         chdk_frame.pack(fill=tk.X, pady=10)
         
         # Informace o stažení firmwaru
-        download_text = ("Navštivte stránku https://www.mighty-hoernsche.de/ a stáhněte "
-                         "firmware CHDK pro váš model fotoaparátu Canon.")
-        download_label = ttk.Label(chdk_frame, text=download_text, wraplength=550, justify=tk.LEFT)
+        download_label = ttk.Label(chdk_frame, text=self.strings["download_info"],
+                                wraplength=550, justify=tk.LEFT)
         download_label.pack(fill=tk.X, pady=5)
         
         # Odkaz na web
         website_frame = ttk.Frame(chdk_frame)
         website_frame.pack(fill=tk.X, pady=5)
         
-        visit_label = ttk.Label(website_frame, text="Otevřít stránku s firmwarem:")
+        visit_label = ttk.Label(website_frame, text=self.strings["open_firmware_page"])
         visit_label.pack(side=tk.LEFT, padx=(0, 5))
         
-        website_button = ttk.Button(website_frame, text="Otevřít mighty-hoernsche.de",
-                                  command=lambda: self.open_website("https://www.mighty-hoernsche.de/"))
+        website_button = ttk.Button(website_frame, text=self.strings["open_website"],
+                                 command=lambda: self.open_website("https://www.mighty-hoernsche.de/"))
         website_button.pack(side=tk.LEFT)
         
         # Výběr staženého souboru
         file_frame = ttk.Frame(chdk_frame)
         file_frame.pack(fill=tk.X, pady=10)
         
-        file_label = ttk.Label(file_frame, text="Stažený soubor:")
+        file_label = ttk.Label(file_frame, text=self.strings["downloaded_file"])
         file_label.pack(side=tk.LEFT, padx=(0, 5))
         
         self.firmware_file_var = tk.StringVar()
         file_entry = ttk.Entry(file_frame, textvariable=self.firmware_file_var, width=40)
         file_entry.pack(side=tk.LEFT, padx=(0, 5), fill=tk.X, expand=True)
         
-        browse_file_button = ttk.Button(file_frame, text="Procházet",
-                                      command=self.browse_firmware_file)
+        browse_file_button = ttk.Button(file_frame, text=self.strings["browse"],
+                                     command=self.browse_firmware_file)
         browse_file_button.pack(side=tk.LEFT)
         
         # Instalační tlačítko
         install_frame = ttk.Frame(parent_frame)
         install_frame.pack(pady=15, anchor=tk.CENTER)
         
-        install_button = ttk.Button(install_frame, text="📥 Instalovat CHDK", 
-                                  command=self.run_installation, style="Install.TButton", 
-                                  padding=(20, 10))
+        install_button = ttk.Button(install_frame, text=self.strings["install_button"], 
+                                 command=self.run_installation, style="Install.TButton", 
+                                 padding=(20, 10))
         install_button.pack()
     
     def setup_help_tab(self, parent_frame):
         """Nastavení obsahu záložky Nápověda"""
-        help_text = (
-            "Jak používat CHDK Installer:\n\n"
-            "1. Připojte SD kartu k počítači.\n"
-            "2. Navštivte stránku https://www.mighty-hoernsche.de/\n"
-            "3. Najděte a stáhněte CHDK firmware pro váš model fotoaparátu Canon.\n"
-            "4. V záložce 'Instalace CHDK' vyberte správnou SD kartu.\n"
-            "5. Pokud chcete SD kartu formátovat (doporučeno), ponechte zaškrtnutou možnost formátování.\n"
-            "6. Klikněte na tlačítko 'Procházet' a vyberte stažený soubor s firmwarem.\n"
-            "7. Klikněte na 'Instalovat CHDK'.\n\n"
-            "Po instalaci:\n"
-            "1. Vložte SD kartu do fotoaparátu.\n"
-            "2. Zapněte fotoaparát v režimu přehrávání.\n"
-            "3. Aktivujte CHDK podle návodu k vašemu modelu (obvykle stisknutím tlačítka 'menu' nebo 'disp').\n\n"
-            "Další informace najdete na oficiálních stránkách CHDK: http://chdk.wikia.com/"
-        )
-        
         # Použití scrollovatelného textového pole pro nápovědu
         help_scroll = ttk.Scrollbar(parent_frame)
         help_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         
         help_text_box = tk.Text(parent_frame, wrap=tk.WORD, height=15, 
-                              yscrollcommand=help_scroll.set, bg="#ffffff", padx=10, pady=10)
-        help_text_box.insert(tk.END, help_text)
+                             yscrollcommand=help_scroll.set, bg="#ffffff", padx=10, pady=10)
+        help_text_box.insert(tk.END, self.strings["help_text"])
         help_text_box.config(state=tk.DISABLED)  # Jen pro čtení
         help_text_box.pack(fill=tk.BOTH, expand=True)
         
@@ -263,31 +251,24 @@ class CHDKInstallerApp:
             pass  # Ignorovat pokud logo není k dispozici
         
         # Informace o aplikaci
-        about_text = (
-            "KACHOW CHDK Installer v1.0\n\n"
-            "Aplikace pro snadnou instalaci CHDK firmwaru na SD karty.\n\n"
-            "CHDK (Canon Hack Development Kit) je neoficiální firmware\n"
-            "pro fotoaparáty Canon, který rozšiřuje jejich možnosti.\n\n"
-            "© 2025 Alexuspo"
-        )
-        
-        about_label = ttk.Label(about_frame, text=about_text, justify=tk.CENTER, wraplength=400)
+        about_label = ttk.Label(about_frame, text=self.strings["about_text"], 
+                            justify=tk.CENTER, wraplength=400)
         about_label.pack(pady=10)
         
         # Odkaz na webové stránky CHDK
         chdk_website_label = ttk.Label(about_frame, text=self.strings["visit_chdk"], 
-                                 foreground="blue", cursor="hand2")
+                                   foreground="blue", cursor="hand2")
         chdk_website_label.pack(pady=5)
         chdk_website_label.bind("<Button-1>", lambda e: self.open_website("http://chdk.wikia.com/"))
         
         # Odkaz na GitHub repozitář
         github_label = ttk.Label(about_frame, text=self.strings["github_link"], 
-                              foreground="blue", cursor="hand2")
+                             foreground="blue", cursor="hand2")
         github_label.pack(pady=5)
         github_label.bind("<Button-1>", lambda e: self.open_website("https://github.com/Alexuspo/KACHOW-CHDK-installer"))
     
     def refresh_drives(self):
-        self.status_var.set("Načítání disků...")
+        self.status_var.set(self.strings["loading_drives"])
         self.progress_var.set(10)
         self.root.update_idletasks()
         
@@ -301,18 +282,19 @@ class CHDKInstallerApp:
             # Pokud jsou disky k dispozici, vybereme první
             if drives:
                 self.drive_combobox.current(0)
-                self.status_var.set(f"Nalezeno {len(drives)} vyměnitelných disků")
+                self.status_var.set(self.strings["drives_found"].format(len(drives)))
             else:
-                self.status_var.set("Nenalezeny žádné SD karty")
+                self.status_var.set(self.strings["no_drives"])
             
             self.progress_var.set(100)
             self.root.after(1000, lambda: self.progress_var.set(0))
             
         except Exception as e:
             # Zachycení a zobrazení chyby
-            self.status_var.set("Chyba: " + str(e))
+            self.status_var.set(f"{self.strings['error']}: {str(e)}")
             self.progress_var.set(0)
-            messagebox.showerror("Chyba", f"Nepodařilo se načíst dostupné disky: {str(e)}")
+            messagebox.showerror(self.strings["error"], 
+                              self.strings["load_drives_error"].format(str(e)))
     
     def browse_firmware_file(self):
         """Výběr staženého souboru s firmwarem CHDK"""
@@ -321,7 +303,7 @@ class CHDKInstallerApp:
             ("Všechny soubory", "*.*")
         ]
         firmware_file = filedialog.askopenfilename(
-            title="Vyberte stažený CHDK firmware",
+            title=self.strings["select_firmware_file"],
             filetypes=filetypes
         )
         if firmware_file:
@@ -336,7 +318,7 @@ class CHDKInstallerApp:
             self.browse_button.config(state="disabled")
     
     def browse_folder(self):
-        folder_path = filedialog.askdirectory(title="Vyberte složku s CHDK")
+        folder_path = filedialog.askdirectory(title=self.strings["select_folder"])
         if folder_path:
             self.custom_folder_entry.delete(0, tk.END)
             self.custom_folder_entry.insert(0, folder_path)
@@ -345,34 +327,33 @@ class CHDKInstallerApp:
         # Validate selections
         selected_drive = self.drive_combobox.get()
         if not selected_drive:
-            messagebox.showerror("Chyba", "Vyberte prosím SD kartu")
+            messagebox.showerror(self.strings["error"], self.strings["select_card"])
             return
         
         # Kontrola souboru s firmwarem
         firmware_file = self.firmware_file_var.get()
         if not firmware_file or not os.path.exists(firmware_file):
-            messagebox.showerror("Chyba", "Vyberte platný soubor s CHDK firmwarem")
+            messagebox.showerror(self.strings["error"], self.strings["select_firmware"])
             return
         
         # Confirm formatting
         if self.format_var.get():
             result = messagebox.askyesno(
-                "Potvrdit formátování", 
-                f"Opravdu chcete formátovat disk {selected_drive}?\n\n"
-                "VŠECHNA DATA NA DISKU BUDOU SMAZÁNA!"
+                self.strings["format_card"], 
+                self.strings["confirm_format"].format(selected_drive)
             )
             if not result:
                 return
         
         # Run the installation process
-        self.status_var.set("Zahajuji instalaci...")
+        self.status_var.set(self.strings["starting_install"])
         self.progress_var.set(5)
         self.root.update_idletasks()
         
         try:
             # Format if required
             if self.format_var.get():
-                self.status_var.set("Formátování SD karty...")
+                self.status_var.set(self.strings["formatting"])
                 self.progress_var.set(20)
                 self.root.update_idletasks()
                 format_drive_to_fat32(selected_drive)
@@ -380,26 +361,26 @@ class CHDKInstallerApp:
                 self.root.update_idletasks()
             
             # Make the card bootable
-            self.status_var.set("Nastavování bootovatelnosti...")
+            self.status_var.set(self.strings["making_bootable"])
             self.progress_var.set(70)
             self.root.update_idletasks()
             make_bootable(selected_drive)
             
             # Install CHDK
-            self.status_var.set("Instalace CHDK...")
+            self.status_var.set(self.strings["installing"])
             self.progress_var.set(80)
             self.root.update_idletasks()
             install_firmware_file(selected_drive, firmware_file)
             
             self.progress_var.set(100)
-            self.status_var.set("Instalace dokončena")
-            messagebox.showinfo("Úspěch", "CHDK bylo úspěšně nainstalováno!")
+            self.status_var.set(self.strings["install_complete"])
+            messagebox.showinfo(self.strings["success"], self.strings["install_success"])
             self.root.after(2000, lambda: self.progress_var.set(0))
             
         except Exception as e:
             self.progress_var.set(0)
-            self.status_var.set(f"Chyba: {str(e)}")
-            messagebox.showerror("Chyba při instalaci", str(e))
+            self.status_var.set(f"{self.strings['error']}: {str(e)}")
+            messagebox.showerror(self.strings["install_error"], str(e))
     
     def open_website(self, url):
         """Otevře webovou stránku v prohlížeči"""
@@ -414,9 +395,12 @@ if __name__ == "__main__":
             os.makedirs(assets_dir)
             print(f"Vytvořena chybějící složka: {assets_dir}")
         
-        # Spuštění aplikace
+        # Výběr jazyka před spuštěním aplikace
+        selected_language = select_language()
+        
+        # Spuštění aplikace s vybraným jazykem
         root = tk.Tk()
-        app = CHDKInstallerApp(root)
+        app = CHDKInstallerApp(root, language=selected_language)
         root.mainloop()
     except Exception as e:
         import traceback
