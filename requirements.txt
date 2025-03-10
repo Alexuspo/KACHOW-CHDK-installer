@@ -1,0 +1,4 @@
+# Základní požadavky
+requests>=2.20.0
+pywin32>=300
+pyinstaller>=5.0.0
