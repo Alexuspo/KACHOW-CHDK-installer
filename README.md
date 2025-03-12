@@ -1,3 +1,3 @@
 # KACHOW CHDK
 Install CHDK with ease with KACHOW chdk installer. 
-![kachow-cool-kachow](https://github.com/user-attachments/assets/2cbc25f6-225d-4d36-86d8-2ee09ee8737d)
+![image](https://github.com/user-attachments/assets/29b0c69d-c080-42db-89f8-e78c0cf2ab61)
