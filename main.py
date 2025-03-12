@@ -2,10 +2,33 @@ import os
 import sys
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-from sd_operations import get_drives, format_drive_to_fat32, make_bootable
+from sd_operations import get_drives, format_drive_to_fat32, make_bootable, is_admin
 from chdk_installer import install_chdk, list_available_models, install_firmware_file
 from language_selector import select_language
 from languages import CZECH, ENGLISH
+import ctypes
+import subprocess
+
+def run_as_admin(command=None, params=None):
+    """
+    Restartuje aplikaci s administrátorskými právy
+    """
+    if command is None:
+        command = sys.executable
+    if params is None:
+        params = sys.argv
+
+    shell32 = ctypes.windll.shell32
+    if not isinstance(command, str):
+        command = str(command)
+
+    # Pokud je cesta k exe v uvozovkách, odstraníme je
+    if command.startswith('"') and command.endswith('"'):
+        command = command[1:-1]
+
+    # ShellExecute otevře program s požadavkem na práva správce 
+    ret = shell32.ShellExecuteW(None, "runas", command, " ".join(params), None, 1)
+    return ret > 32  # Pokud je návratová hodnota > 32, pak bylo spuštění úspěšné
 
 class CHDKInstallerApp:
     def __init__(self, root, language='cs'):
@@ -18,6 +41,9 @@ class CHDKInstallerApp:
         self.root.title(self.strings["app_title"])
         self.root.geometry("650x580")
         self.root.resizable(True, True)
+
+        # Kontrola administrátorských práv při startu aplikace
+        self.has_admin = is_admin()
         
         # Nastavení stylu aplikace
         self.style = ttk.Style()
@@ -35,10 +61,41 @@ class CHDKInstallerApp:
             self.root.iconbitmap(icon_path)
         except:
             pass  # Ikona nenalezena, ignorovat
+        
+        # Zobrazit varování, pokud nejsou administrátorská práva
+        if not self.has_admin:
+            self.show_admin_warning()
             
         self.create_widgets()
         self.refresh_drives()
+    
+    def show_admin_warning(self):
+        """Zobrazí varování o chybějících administrátorských právech"""
+        warning_frame = ttk.Frame(self.root, padding=10)
+        warning_frame.pack(fill=tk.X, pady=5)
         
+        warning_text = self.strings.get("admin_warning", 
+                      "Aplikace není spuštěna jako správce. Formátování SD karet nemusí fungovat.")
+        
+        warning_label = ttk.Label(warning_frame, text=warning_text,
+                               foreground="red", font=("Arial", 10, "bold"),
+                               wraplength=600)
+        warning_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        restart_button = ttk.Button(warning_frame, text=self.strings.get("restart_as_admin", "Spustit jako správce"),
+                                 command=self.restart_as_admin)
+        restart_button.pack(side=tk.RIGHT, padx=5)
+
+    def restart_as_admin(self):
+        """Restartuje aplikaci s administrátorskými právy"""
+        if run_as_admin():
+            self.root.destroy()  # Ukončí aktuální instanci aplikace
+        else:
+            messagebox.showerror(
+                self.strings["error"], 
+                self.strings.get("admin_restart_failed", "Nepodařilo se spustit aplikaci jako správce.")
+            )
+     
     def setup_style(self):
         """Nastavení vzhledu aplikace"""
         # Použití moderního tématu
@@ -162,13 +219,23 @@ class CHDKInstallerApp:
                                   command=self.refresh_drives, style="Refresh.TButton")
         refresh_button.pack(side=tk.LEFT)
         
-        # Format checkbox
+        # Format checkbox a tlačítko
         format_frame = ttk.Frame(sd_frame)
         format_frame.pack(fill=tk.X, pady=5)
         
         self.format_var = tk.BooleanVar(value=True)
         format_check = ttk.Checkbutton(format_frame, text=self.strings["format_card"], variable=self.format_var)
-        format_check.pack(side=tk.LEFT)
+        format_check.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Přidání samostatného tlačítka pro formátování
+        format_button = ttk.Button(format_frame, text="Formátovat SD kartu",
+                                command=self.format_card)
+        format_button.pack(side=tk.LEFT, padx=5)
+        
+        # Přidání tlačítka pro nastavení bootovatelnosti
+        bootable_button = ttk.Button(format_frame, text="Nastavit bootovatelnost",
+                                  command=self.make_card_bootable)
+        bootable_button.pack(side=tk.LEFT, padx=5)
         
         # Warning label
         warning_label = ttk.Label(sd_frame, text=self.strings["format_warning"],
@@ -303,12 +370,12 @@ class CHDKInstallerApp:
             ("Všechny soubory", "*.*")
         ]
         firmware_file = filedialog.askopenfilename(
-            title=self.strings["select_firmware_file"],
+            title="Vyberte stažený CHDK firmware",  # Použití pevného textu místo klíče
             filetypes=filetypes
         )
         if firmware_file:
             self.firmware_file_var.set(firmware_file)
-    
+
     def toggle_custom_folder(self):
         if self.custom_folder_var.get():
             self.custom_folder_entry.config(state="normal")
@@ -316,9 +383,9 @@ class CHDKInstallerApp:
         else:
             self.custom_folder_entry.config(state="disabled")
             self.browse_button.config(state="disabled")
-    
+
     def browse_folder(self):
-        folder_path = filedialog.askdirectory(title=self.strings["select_folder"])
+        folder_path = filedialog.askdirectory(title="Vyberte složku s CHDK")  # Použití pevného textu místo klíče
         if folder_path:
             self.custom_folder_entry.delete(0, tk.END)
             self.custom_folder_entry.insert(0, folder_path)
@@ -334,6 +401,17 @@ class CHDKInstallerApp:
         firmware_file = self.firmware_file_var.get()
         if not firmware_file or not os.path.exists(firmware_file):
             messagebox.showerror(self.strings["error"], self.strings["select_firmware"])
+            return
+        
+        # Kontrola administrátorských práv, pokud chceme formátovat
+        if self.format_var.get() and not self.has_admin:
+            response = messagebox.askyesno(
+                self.strings.get("admin_required", "Vyžadována práva správce"),
+                self.strings.get("format_admin_warning", 
+                               "Pro formátování SD karty jsou vyžadována práva správce. Chcete aplikaci restartovat s právy správce?")
+            )
+            if response:
+                self.restart_as_admin()
             return
         
         # Confirm formatting
@@ -382,6 +460,91 @@ class CHDKInstallerApp:
             self.status_var.set(f"{self.strings['error']}: {str(e)}")
             messagebox.showerror(self.strings["install_error"], str(e))
     
+    def format_card(self):
+        """Samostatné formátování SD karty"""
+        # Kontrola administrátorských práv
+        if not self.has_admin:
+            response = messagebox.askyesno(
+                self.strings.get("admin_required", "Vyžadována práva správce"),
+                self.strings.get("format_admin_warning", 
+                               "Pro formátování SD karty jsou vyžadována práva správce. Chcete aplikaci restartovat s právy správce?")
+            )
+            if response:
+                self.restart_as_admin()
+            return
+            
+        selected_drive = self.drive_combobox.get()
+        if not selected_drive:
+            messagebox.showerror(self.strings["error"], self.strings["select_card"])
+            return
+        
+        # Varování před formátováním
+        result = messagebox.askyesno(
+            self.strings["format_card"], 
+            self.strings["confirm_format"].format(selected_drive)
+        )
+        if not result:
+            return
+        
+        # Použijeme nejjednodušší možný přístup - spustíme externí formátovací skript
+        try:
+            # Nastavíme indikátor průběhu
+            self.status_var.set("Spouštění formátování...")
+            self.progress_var.set(50)
+            
+            # Cesta k dávkovému souboru
+            batch_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "direct_format.bat")
+            
+            # Pokud skript neexistuje, vytvoříme ho
+            if not os.path.exists(batch_path):
+                with open(batch_path, 'w', encoding='utf-8') as f:
+                    f.write('@echo off\n')
+                    f.write(f'echo Formátování %1...\n')
+                    f.write(f'echo Y | format %1 /FS:FAT32 /Q /V:"CHDK"\n')
+                    f.write('if not exist %1\\BOOTDISK.BIN echo. > %1\\BOOTDISK.BIN\n')
+                    f.write('attrib +h %1\\BOOTDISK.BIN\n')
+                    f.write('if not exist %1\\DCIM mkdir %1\\DCIM\n')
+            
+            # Spustíme formátování v novém okně
+            os.system(f'start cmd /c "{batch_path}" {selected_drive}')
+            
+            # Informace pro uživatele
+            messagebox.showinfo(
+                "Formátování",
+                "Formátování bylo spuštěno v samostatném okně.\n\n"
+                "Po dokončení formátování pokračujte v aplikaci."
+            )
+            self.progress_var.set(0)
+            self.status_var.set(f"Formátování {selected_drive} probíhá v samostatném okně")
+        
+        except Exception as e:
+            self.status_var.set(f"Chyba: {str(e)}")
+            self.progress_var.set(0)
+            messagebox.showerror("Chyba", f"Nepodařilo se spustit formátování: {str(e)}")
+
+    def make_card_bootable(self):
+        """Samostatné nastavení bootovatelnosti SD karty"""
+        selected_drive = self.drive_combobox.get()
+        if not selected_drive:
+            messagebox.showerror(self.strings["error"], self.strings["select_card"])
+            return
+        
+        # Run bootable setup
+        self.status_var.set(self.strings["making_bootable"])
+        self.progress_var.set(40)
+        self.root.update_idletasks()
+        
+        try:
+            make_bootable(selected_drive)
+            self.progress_var.set(100)
+            self.status_var.set("Bootovatelnost nastavena")
+            messagebox.showinfo(self.strings["success"], "SD karta byla úspěšně nastavena jako bootovatelná!")
+            self.root.after(2000, lambda: self.progress_var.set(0))
+        except Exception as e:
+            self.progress_var.set(0)
+            self.status_var.set(f"{self.strings['error']}: {str(e)}")
+            messagebox.showerror(self.strings["error"], f"Chyba při nastavování bootovatelnosti: {str(e)}")
+
     def open_website(self, url):
         """Otevře webovou stránku v prohlížeči"""
         import webbrowser

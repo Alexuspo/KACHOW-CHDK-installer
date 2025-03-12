@@ -2,3 +2,5 @@
 requests>=2.20.0
 pywin32>=300
 pyinstaller>=5.0.0
+# Alternativní knihovna pro elevaci práv (volitelné)
+# elevate>=0.1.3

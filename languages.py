@@ -51,6 +51,23 @@ CZECH = {
     "install_success": "CHDK bylo úspěšně nainstalováno!",
     "install_error": "Chyba při instalaci",
     
+    # Operace s SD kartou
+    "format_button": "Formátovat SD kartu",
+    "bootable_button": "Nastavit bootovatelnost",
+    "format_complete": "Formátování dokončeno",
+    "bootable_complete": "Bootovatelnost nastavena",
+    "format_success": "SD karta byla úspěšně formátována!",
+    "bootable_success": "SD karta byla úspěšně nastavena jako bootovatelná!",
+    "format_error": "Chyba při formátování: {}",
+    "bootable_error": "Chyba při nastavování bootovatelnosti: {}",
+
+    # Administrátorská práva
+    "admin_warning": "Aplikace není spuštěna jako správce. Formátování SD karet nemusí fungovat.",
+    "restart_as_admin": "Spustit jako správce",
+    "admin_required": "Vyžadována práva správce",
+    "format_admin_warning": "Pro formátování SD karty jsou vyžadována práva správce. Chcete aplikaci restartovat s právy správce?",
+    "admin_restart_failed": "Nepodařilo se spustit aplikaci jako správce.",
+
     # Nápověda
     "help_text": """Jak používat CHDK Installer:
 
@@ -83,7 +100,11 @@ pro fotoaparáty Canon, který rozšiřuje jejich možnosti.
     
     # Dialog výběru jazyka
     "language_title": "Výběr jazyka | Language Selection",
-    "language_prompt": "Vyberte jazyk | Select language:"
+    "language_prompt": "Vyberte jazyk | Select language:",
+
+    # Dialogy
+    "select_firmware_file": "Vyberte stažený CHDK firmware",
+    "select_folder": "Vyberte složku s CHDK",
 }
 
 # Anglický jazyk
@@ -135,6 +156,23 @@ ENGLISH = {
     "install_success": "CHDK has been successfully installed!",
     "install_error": "Installation error",
     
+    # SD card operations
+    "format_button": "Format SD card",
+    "bootable_button": "Make bootable",
+    "format_complete": "Formatting complete",
+    "bootable_complete": "Bootable setup complete",
+    "format_success": "SD card was successfully formatted!",
+    "bootable_success": "SD card was successfully set as bootable!",
+    "format_error": "Error while formatting: {}",
+    "bootable_error": "Error while setting bootability: {}",
+
+    # Administrator rights
+    "admin_warning": "The application is not running as administrator. SD card formatting may not work.",
+    "restart_as_admin": "Run as administrator",
+    "admin_required": "Administrator rights required",
+    "format_admin_warning": "Administrator rights are required to format the SD card. Do you want to restart the application with administrator rights?",
+    "admin_restart_failed": "Failed to restart the application as administrator.",
+
     # Help
     "help_text": """How to use CHDK Installer:
 
@@ -167,5 +205,9 @@ for Canon cameras that extends their capabilities.
     
     # Language selection dialog
     "language_title": "Language Selection | Výběr jazyka",
-    "language_prompt": "Select language | Vyberte jazyk:"
+    "language_prompt": "Select language | Vyberte jazyk:",
+
+    # Dialogs
+    "select_firmware_file": "Select downloaded CHDK firmware",
+    "select_folder": "Select CHDK folder",
 }
