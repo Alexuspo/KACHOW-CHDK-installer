@@ -1,13 +1,17 @@
 import os
 import sys
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
-from sd_operations import get_drives, format_drive_to_fat32, make_bootable, is_admin
+from tkinter import ttk, messagebox, filedialog, simpledialog
+from sd_operations import get_drives, make_bootable, is_admin, check_drive_compatibility
 from chdk_installer import install_chdk, list_available_models, install_firmware_file
 from language_selector import select_language
 from languages import CZECH, ENGLISH
 import ctypes
 import subprocess
+from chdk_logger import get_logger
+
+# Získáme instanci loggeru
+logger = get_logger()
 
 def run_as_admin(command=None, params=None):
     """
@@ -39,9 +43,17 @@ class CHDKInstallerApp:
         self.strings = CZECH if language == 'cs' else ENGLISH
         
         self.root.title(self.strings["app_title"])
-        self.root.geometry("650x580")
+        
+        # Změna výchozí velikosti okna na větší rozměr
+        self.root.geometry("900x700")  # Zvětšil jsem z 650x580 na 900x700
         self.root.resizable(True, True)
-
+        
+        # Nastavení minimální velikosti okna
+        self.root.minsize(650, 580)
+        
+        # Přidání reakce na změnu velikosti okna
+        self.root.bind("<Configure>", self.on_window_resize)
+        
         # Kontrola administrátorských práv při startu aplikace
         self.has_admin = is_admin()
         
@@ -133,8 +145,8 @@ class CHDKInstallerApp:
         self.style.configure("Warning.TLabel", foreground=warning_color, font=("Arial", 10, "bold"))
     
     def create_widgets(self):
-        # Hlavní rámec
-        main_frame = ttk.Frame(self.root, padding=15)
+        # Hlavní rámec bez scrollování - jednodušší řešení
+        main_frame = ttk.Frame(self.root, padding=20)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Nadpis
@@ -161,9 +173,9 @@ class CHDKInstallerApp:
                                  justify="center", padding=(0, 5))
         welcome_label.pack(fill=tk.X, pady=5)
         
-        # Notebook pro organizaci obsahu
+        # Notebook pro organizaci obsahu - upravena výška
         notebook = ttk.Notebook(main_frame)
-        notebook.pack(fill=tk.BOTH, expand=True, pady=10)
+        notebook.pack(fill=tk.BOTH, expand=True, pady=15)  # Zvětšeno pady z 10 na 15
         
         # Záložka 1: Instalace
         install_frame = ttk.Frame(notebook, padding=15)
@@ -201,8 +213,43 @@ class CHDKInstallerApp:
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
         
     def setup_install_tab(self, parent_frame):
+        # Vytvoření scrollovatelného rámce pro záložku instalace
+        canvas = tk.Canvas(parent_frame)
+        scrollbar = ttk.Scrollbar(parent_frame, orient="vertical", command=canvas.yview)
+        
+        # Konfigurace scrollování
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack komponenty
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Vytvoření vnitřního rámce pro obsah
+        inner_frame = ttk.Frame(canvas)
+        
+        # Konfigurace canvas window
+        canvas_window = canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+        
+        # Funkce pro aktualizaci scrollování
+        def configure_scroll_region(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            
+        # Funkce pro přizpůsobení šířky vnitřního rámce při změně velikosti
+        def configure_window_size(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+            
+        # Přidání bindování událostí
+        inner_frame.bind("<Configure>", configure_scroll_region)
+        canvas.bind("<Configure>", configure_window_size)
+        
+        # Přidání scrollování pomocí myši
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
         # SD Card selection frame
-        sd_frame = ttk.LabelFrame(parent_frame, text=self.strings["step1_title"], padding=10)
+        sd_frame = ttk.LabelFrame(inner_frame, text=self.strings["step1_title"], padding=10)
         sd_frame.pack(fill=tk.X, pady=5)
         
         # Drives selection and refresh
@@ -219,40 +266,67 @@ class CHDKInstallerApp:
                                   command=self.refresh_drives, style="Refresh.TButton")
         refresh_button.pack(side=tk.LEFT)
         
-        # Format checkbox a tlačítko
-        format_frame = ttk.Frame(sd_frame)
-        format_frame.pack(fill=tk.X, pady=5)
+        # Informace o SD kartě - nový element
+        card_info_frame = ttk.Frame(sd_frame)
+        card_info_frame.pack(fill=tk.X, pady=5)
         
-        self.format_var = tk.BooleanVar(value=True)
-        format_check = ttk.Checkbutton(format_frame, text=self.strings["format_card"], variable=self.format_var)
-        format_check.pack(side=tk.LEFT, padx=(0, 10))
-        
-        # Přidání samostatného tlačítka pro formátování
-        format_button = ttk.Button(format_frame, text="Formátovat SD kartu",
-                                command=self.format_card)
-        format_button.pack(side=tk.LEFT, padx=5)
+        # Přidání tlačítka pro kontrolu kompatibility
+        check_button = ttk.Button(card_info_frame, text="Zkontrolovat kompatibilitu",
+                               command=self.check_card_compatibility)
+        check_button.pack(side=tk.LEFT, padx=5)
         
         # Přidání tlačítka pro nastavení bootovatelnosti
-        bootable_button = ttk.Button(format_frame, text="Nastavit bootovatelnost",
+        bootable_button = ttk.Button(card_info_frame, text="Nastavit bootovatelnost",
                                   command=self.make_card_bootable)
         bootable_button.pack(side=tk.LEFT, padx=5)
         
-        # Warning label
-        warning_label = ttk.Label(sd_frame, text=self.strings["format_warning"],
-                               style="Warning.TLabel", wraplength=550)
+        # Varování
+        warning_label = ttk.Label(sd_frame, 
+                              text="SD karta musí být ve formátu FAT32 a menší než 64 GB. Formátujte kartu ručně před použitím aplikace.",
+                              style="Warning.TLabel", wraplength=550)
         warning_label.pack(fill=tk.X, pady=5)
         
         # CHDK Selection frame
-        chdk_frame = ttk.LabelFrame(parent_frame, text=self.strings["step2_title"], padding=10)
+        chdk_frame = ttk.LabelFrame(inner_frame, text=self.strings["step2_title"], padding=10)
         chdk_frame.pack(fill=tk.X, pady=10)
         
-        # Informace o stažení firmwaru
-        download_label = ttk.Label(chdk_frame, text=self.strings["download_info"],
+        # Přidáme přepínač pro výběr mezi předinstalovanými a vlastními firmware
+        firmware_selection_frame = ttk.Frame(chdk_frame)
+        firmware_selection_frame.pack(fill=tk.X, pady=5)
+        
+        self.firmware_source_var = tk.StringVar(value="custom")
+        
+        # Radiobutton pro vlastní firmware
+        custom_radio = ttk.Radiobutton(
+            firmware_selection_frame, 
+            text="Vlastní firmware (stažený z internetu)", 
+            variable=self.firmware_source_var, 
+            value="custom",
+            command=self.toggle_firmware_source
+        )
+        custom_radio.pack(anchor=tk.W)
+        
+        # Radiobutton pro předinstalované firmware
+        preinstalled_radio = ttk.Radiobutton(
+            firmware_selection_frame, 
+            text="Předinstalované CHDK firmware", 
+            variable=self.firmware_source_var, 
+            value="preinstalled",
+            command=self.toggle_firmware_source
+        )
+        preinstalled_radio.pack(anchor=tk.W)
+        
+        # Frame pro výběr vlastního firmware
+        self.custom_firmware_frame = ttk.Frame(chdk_frame)
+        self.custom_firmware_frame.pack(fill=tk.X, pady=5)
+        
+        # Informace o stažení firmwaru (pro vlastní firmware)
+        download_label = ttk.Label(self.custom_firmware_frame, text=self.strings["download_info"],
                                 wraplength=550, justify=tk.LEFT)
         download_label.pack(fill=tk.X, pady=5)
         
         # Odkaz na web
-        website_frame = ttk.Frame(chdk_frame)
+        website_frame = ttk.Frame(self.custom_firmware_frame)
         website_frame.pack(fill=tk.X, pady=5)
         
         visit_label = ttk.Label(website_frame, text=self.strings["open_firmware_page"])
@@ -263,7 +337,7 @@ class CHDKInstallerApp:
         website_button.pack(side=tk.LEFT)
         
         # Výběr staženého souboru
-        file_frame = ttk.Frame(chdk_frame)
+        file_frame = ttk.Frame(self.custom_firmware_frame)
         file_frame.pack(fill=tk.X, pady=10)
         
         file_label = ttk.Label(file_frame, text=self.strings["downloaded_file"])
@@ -277,23 +351,135 @@ class CHDKInstallerApp:
                                      command=self.browse_firmware_file)
         browse_file_button.pack(side=tk.LEFT)
         
+        # Frame pro výběr předinstalovaného firmware
+        self.preinstalled_firmware_frame = ttk.Frame(chdk_frame)
+        
+        # Načtení seznamu dostupných modelů
+        from chdk_models_manager import CHDKModelsManager
+        self.models_manager = CHDKModelsManager()
+        available_models = self.models_manager.get_available_models()
+        
+        # Informace o předinstalovaných firmwarech
+        model_info_label = ttk.Label(
+            self.preinstalled_firmware_frame, 
+            text="Vyberte model fotoaparátu ze seznamu:",
+            wraplength=550
+        )
+        model_info_label.pack(fill=tk.X, pady=5)
+        
+        # Seznam modelů + scrollbar - zvětšená výška listboxu
+        models_frame = ttk.Frame(self.preinstalled_firmware_frame)
+        models_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        
+        models_scrollbar = ttk.Scrollbar(models_frame)
+        models_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.models_listbox = tk.Listbox(
+            models_frame, 
+            height=12,  # Zvětšeno z 8 na 12
+            selectmode=tk.SINGLE,
+            yscrollcommand=models_scrollbar.set
+        )
+        self.models_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        models_scrollbar.config(command=self.models_listbox.yview)
+        
+        # Naplnění seznamu modelů
+        for model in available_models:
+            self.models_listbox.insert(tk.END, model)
+            
+        # Pokud nejsou k dispozici žádné předinstalované modely, přidáme informaci
+        if not available_models:
+            self.models_listbox.insert(tk.END, "Žádné předinstalované firmware nejsou k dispozici")
+            self.models_listbox.config(state=tk.DISABLED)
+        
+        # Tlačítko pro přidání nového firmwaru
+        add_firmware_button = ttk.Button(
+            self.preinstalled_firmware_frame, 
+            text="Přidat nový firmware do databáze",
+            command=self.add_new_firmware
+        )
+        add_firmware_button.pack(pady=5)
+        
+        # Výchozí zobrazení - vlastní firmware
+        self.toggle_firmware_source()
+        
         # Instalační tlačítko
-        install_frame = ttk.Frame(parent_frame)
+        install_frame = ttk.Frame(inner_frame)
         install_frame.pack(pady=15, anchor=tk.CENTER)
         
         install_button = ttk.Button(install_frame, text=self.strings["install_button"], 
                                  command=self.run_installation, style="Install.TButton", 
                                  padding=(20, 10))
         install_button.pack()
+        
+        # Pro správné scrollování
+        inner_frame.update_idletasks()
+        canvas.config(scrollregion=canvas.bbox("all"))
     
+    def toggle_firmware_source(self):
+        """Přepíná mezi vlastním a předinstalovaným firmwarem"""
+        if self.firmware_source_var.get() == "custom":
+            # Zobrazíme custom frame, skryjeme preinstalled
+            self.custom_firmware_frame.pack(fill=tk.X, pady=5)
+            self.preinstalled_firmware_frame.pack_forget()
+        else:
+            # Zobrazíme preinstalled frame, skryjeme custom
+            self.custom_firmware_frame.pack_forget()
+            self.preinstalled_firmware_frame.pack(fill=tk.X, pady=5)
+
+    def add_new_firmware(self):
+        """Přidá nový firmware do databáze"""
+        # Vybereme soubor nebo složku
+        firmware_path = filedialog.askopenfilename(
+            title="Vyberte firmware pro přidání do databáze",
+            filetypes=[
+                ("CHDK firmware (zip)", "*.zip"),
+                ("Všechny soubory", "*.*")
+            ]
+        )
+        
+        if not firmware_path:
+            return
+        
+        # Vyžádáme si název modelu
+        model_name = None
+        while not model_name:
+            model_name = simpledialog.askstring(
+                "Název modelu", 
+                "Zadejte název modelu fotoaparátu (např. 'PowerShot A720 IS'):",
+                parent=self.root
+            )
+            if model_name is None:  # uživatel klikl na Cancel
+                return
+            
+            if not model_name.strip():
+                messagebox.showerror("Chyba", "Název modelu nemůže být prázdný")
+                model_name = None
+        
+        try:
+            # Přidání firmware do databáze
+            self.models_manager.add_firmware(firmware_path, model_name)
+            
+            # Aktualizace seznamu modelů
+            self.models_listbox.delete(0, tk.END)
+            for model in self.models_manager.get_available_models():
+                self.models_listbox.insert(tk.END, model)
+            
+            messagebox.showinfo(
+                "Firmware přidán", 
+                f"Firmware pro model {model_name} byl úspěšně přidán do databáze."
+            )
+        except Exception as e:
+            messagebox.showerror("Chyba", f"Nepodařilo se přidat firmware: {str(e)}")
+
     def setup_help_tab(self, parent_frame):
         """Nastavení obsahu záložky Nápověda"""
         # Použití scrollovatelného textového pole pro nápovědu
         help_scroll = ttk.Scrollbar(parent_frame)
         help_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         
-        help_text_box = tk.Text(parent_frame, wrap=tk.WORD, height=15, 
-                             yscrollcommand=help_scroll.set, bg="#ffffff", padx=10, pady=10)
+        help_text_box = tk.Text(parent_frame, wrap=tk.WORD, height=25,  # Zvětšeno z 15 na 25
+                             yscrollcommand=help_scroll.set, bg="#ffffff", padx=15, pady=15)  # Zvětšené padx a pady z 10 na 15
         help_text_box.insert(tk.END, self.strings["help_text"])
         help_text_box.config(state=tk.DISABLED)  # Jen pro čtení
         help_text_box.pack(fill=tk.BOTH, expand=True)
@@ -397,31 +583,49 @@ class CHDKInstallerApp:
             messagebox.showerror(self.strings["error"], self.strings["select_card"])
             return
         
-        # Kontrola souboru s firmwarem
-        firmware_file = self.firmware_file_var.get()
-        if not firmware_file or not os.path.exists(firmware_file):
-            messagebox.showerror(self.strings["error"], self.strings["select_firmware"])
-            return
-        
-        # Kontrola administrátorských práv, pokud chceme formátovat
-        if self.format_var.get() and not self.has_admin:
-            response = messagebox.askyesno(
-                self.strings.get("admin_required", "Vyžadována práva správce"),
-                self.strings.get("format_admin_warning", 
-                               "Pro formátování SD karty jsou vyžadována práva správce. Chcete aplikaci restartovat s právy správce?")
-            )
-            if response:
-                self.restart_as_admin()
-            return
-        
-        # Confirm formatting
-        if self.format_var.get():
-            result = messagebox.askyesno(
-                self.strings["format_card"], 
-                self.strings["confirm_format"].format(selected_drive)
-            )
-            if not result:
+        # Kontrola typu firmware zdroje
+        if self.firmware_source_var.get() == "custom":
+            # Kontrola souboru s firmwarem
+            firmware_file = self.firmware_file_var.get()
+            if not firmware_file or not os.path.exists(firmware_file):
+                messagebox.showerror(self.strings["error"], self.strings["select_firmware"])
                 return
+        else:
+            # Kontrola vybraného předinstalovaného modelu
+            if not self.models_listbox.curselection():
+                messagebox.showerror(self.strings["error"], self.strings["select_model"])
+                return
+            firmware_file = None
+            firmware_model = self.models_listbox.get(self.models_listbox.curselection()[0])
+        
+        # Kontrola kompatibility SD karty
+        is_compatible, error_message = check_drive_compatibility(selected_drive)
+        
+        if not is_compatible:
+            # Nabídneme uživateli možnost přeskočit kontrolu a pokračovat
+            force_result = messagebox.askyesno(
+                "Nekompabilní SD karta", 
+                f"{error_message}\n\nChcete přesto pokračovat s instalací CHDK?\n"
+                "(Použijte tuto volbu pouze pokud víte, že karta je naformátována správně)"
+            )
+            if not force_result:
+                return
+        
+        # Confirm installation
+        result = messagebox.askyesno(
+            "Instalace CHDK", 
+            f"Opravdu chcete nainstalovat CHDK na SD kartu {selected_drive}?\n\n"
+            "SD karta bude nastavena jako bootovatelná a budou na ni nahrány soubory CHDK."
+        )
+        if not result:
+            return
+        
+        # Logování operace
+        logger.info(f"Zahájení instalace CHDK na disk {selected_drive}")
+        if firmware_file:
+            logger.info(f"Používám vlastní firmware soubor: {firmware_file}")
+        else:
+            logger.info(f"Používám předinstalovaný firmware modelu: {firmware_model}")
         
         # Run the installation process
         self.status_var.set(self.strings["starting_install"])
@@ -429,98 +633,98 @@ class CHDKInstallerApp:
         self.root.update_idletasks()
         
         try:
-            # Format if required
-            if self.format_var.get():
-                self.status_var.set(self.strings["formatting"])
-                self.progress_var.set(20)
-                self.root.update_idletasks()
-                format_drive_to_fat32(selected_drive)
-                self.progress_var.set(50)
-                self.root.update_idletasks()
-            
             # Make the card bootable
             self.status_var.set(self.strings["making_bootable"])
-            self.progress_var.set(70)
+            self.progress_var.set(30)
             self.root.update_idletasks()
             make_bootable(selected_drive)
+            logger.info(f"Disk {selected_drive} nastaven jako bootovatelný")
             
             # Install CHDK
             self.status_var.set(self.strings["installing"])
-            self.progress_var.set(80)
+            self.progress_var.set(60)
             self.root.update_idletasks()
-            install_firmware_file(selected_drive, firmware_file)
+            
+            if self.firmware_source_var.get() == "custom":
+                # Instalace z vybraného souboru
+                logger.info(f"Instaluji CHDK z vlastního souboru: {firmware_file}")
+                install_firmware_file(selected_drive, firmware_file)
+            else:
+                # Instalace předinstalovaného firmware
+                logger.info(f"Instaluji předinstalovaný CHDK firmware pro model: {firmware_model}")
+                self.models_manager.install_model_firmware(firmware_model, selected_drive)
             
             self.progress_var.set(100)
             self.status_var.set(self.strings["install_complete"])
+            logger.info(f"Instalace CHDK na disk {selected_drive} dokončena úspěšně")
             messagebox.showinfo(self.strings["success"], self.strings["install_success"])
             self.root.after(2000, lambda: self.progress_var.set(0))
             
         except Exception as e:
             self.progress_var.set(0)
             self.status_var.set(f"{self.strings['error']}: {str(e)}")
+            logger.error(f"Chyba při instalaci CHDK: {str(e)}")
             messagebox.showerror(self.strings["install_error"], str(e))
     
-    def format_card(self):
-        """Samostatné formátování SD karty"""
-        # Kontrola administrátorských práv
-        if not self.has_admin:
-            response = messagebox.askyesno(
-                self.strings.get("admin_required", "Vyžadována práva správce"),
-                self.strings.get("format_admin_warning", 
-                               "Pro formátování SD karty jsou vyžadována práva správce. Chcete aplikaci restartovat s právy správce?")
-            )
-            if response:
-                self.restart_as_admin()
-            return
-            
+    def check_card_compatibility(self):
+        """Zkontroluje kompatibilitu vybrané SD karty"""
         selected_drive = self.drive_combobox.get()
         if not selected_drive:
             messagebox.showerror(self.strings["error"], self.strings["select_card"])
             return
         
-        # Varování před formátováním
-        result = messagebox.askyesno(
-            self.strings["format_card"], 
-            self.strings["confirm_format"].format(selected_drive)
-        )
-        if not result:
-            return
+        self.status_var.set("Kontroluji kompatibilitu...")
+        self.progress_var.set(30)
+        self.root.update_idletasks()
         
-        # Použijeme nejjednodušší možný přístup - spustíme externí formátovací skript
         try:
-            # Nastavíme indikátor průběhu
-            self.status_var.set("Spouštění formátování...")
-            self.progress_var.set(50)
+            is_compatible, error_message = check_drive_compatibility(selected_drive)
             
-            # Cesta k dávkovému souboru
-            batch_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "direct_format.bat")
+            if is_compatible:
+                # Pokud je vráceno varování (kompatibilní, ale s výhradou)
+                if error_message and error_message.startswith("VAROVÁNÍ"):
+                    self.progress_var.set(80)
+                    self.status_var.set("Karta může být kompatibilní")
+                    messagebox.showwarning(
+                        "Možná kompatibilní", 
+                        f"{error_message}\n\nMůžete zkusit pokračovat s instalací."
+                    )
+                    self.root.after(1000, lambda: self.progress_var.set(0))
+                else:
+                    self.progress_var.set(100)
+                    self.status_var.set("Karta je kompatibilní")
+                    messagebox.showinfo(
+                        "Kontrola kompatibility", 
+                        f"SD karta {selected_drive} je kompatibilní s CHDK.\n\n"
+                        "Můžete pokračovat nastavením bootovatelnosti a instalací CHDK."
+                    )
+                    self.root.after(1000, lambda: self.progress_var.set(0))
+            else:
+                # Nabídneme uživateli možnost přeskočit kontrolu a pokračovat
+                force_result = messagebox.askyesno(
+                    "Nekompabilní SD karta", 
+                    f"{error_message}\n\nChcete přesto označit kartu jako kompatibilní?\n"
+                    "(Použijte tuto volbu pouze pokud víte, že karta je naformátována správně)"
+                )
+                
+                if force_result:
+                    self.progress_var.set(100)
+                    self.status_var.set("Karta označena jako kompatibilní")
+                    messagebox.showinfo(
+                        "Kontrola přeskočena", 
+                        f"SD karta {selected_drive} byla ručně označena jako kompatibilní.\n\n"
+                        "Můžete pokračovat nastavením bootovatelnosti a instalací CHDK."
+                    )
+                    self.root.after(1000, lambda: self.progress_var.set(0))
+                else:
+                    self.progress_var.set(0)
+                    self.status_var.set(f"Karta není kompatibilní: {error_message}")
+                    messagebox.showerror("Kontrola kompatibility", error_message)
             
-            # Pokud skript neexistuje, vytvoříme ho
-            if not os.path.exists(batch_path):
-                with open(batch_path, 'w', encoding='utf-8') as f:
-                    f.write('@echo off\n')
-                    f.write(f'echo Formátování %1...\n')
-                    f.write(f'echo Y | format %1 /FS:FAT32 /Q /V:"CHDK"\n')
-                    f.write('if not exist %1\\BOOTDISK.BIN echo. > %1\\BOOTDISK.BIN\n')
-                    f.write('attrib +h %1\\BOOTDISK.BIN\n')
-                    f.write('if not exist %1\\DCIM mkdir %1\\DCIM\n')
-            
-            # Spustíme formátování v novém okně
-            os.system(f'start cmd /c "{batch_path}" {selected_drive}')
-            
-            # Informace pro uživatele
-            messagebox.showinfo(
-                "Formátování",
-                "Formátování bylo spuštěno v samostatném okně.\n\n"
-                "Po dokončení formátování pokračujte v aplikaci."
-            )
-            self.progress_var.set(0)
-            self.status_var.set(f"Formátování {selected_drive} probíhá v samostatném okně")
-        
         except Exception as e:
-            self.status_var.set(f"Chyba: {str(e)}")
             self.progress_var.set(0)
-            messagebox.showerror("Chyba", f"Nepodařilo se spustit formátování: {str(e)}")
+            self.status_var.set(f"Chyba: {str(e)}")
+            messagebox.showerror("Chyba", f"Při kontrole kompatibility nastala chyba: {str(e)}")
 
     def make_card_bootable(self):
         """Samostatné nastavení bootovatelnosti SD karty"""
@@ -545,10 +749,32 @@ class CHDKInstallerApp:
             self.status_var.set(f"{self.strings['error']}: {str(e)}")
             messagebox.showerror(self.strings["error"], f"Chyba při nastavování bootovatelnosti: {str(e)}")
 
+    def format_card(self):
+        """Zobrazí instrukce pro ruční formátování SD karty"""
+        messagebox.showinfo(
+            "Ruční formátování SD karty",
+            "Aplikace již nepodporuje automatické formátování SD karet.\n\n"
+            "Pro formátování SD karty prosím postupujte takto:\n"
+            "1. Otevřete Průzkumník Windows\n"
+            "2. Pravým tlačítkem klikněte na SD kartu\n"
+            "3. Zvolte možnost 'Formátovat...'\n"
+            "4. Vyberte formát 'FAT32'\n"
+            "5. Klikněte na 'Spustit'\n\n"
+            "Po formátování můžete pokračovat nastavením bootovatelnosti a instalací CHDK."
+        )
+
     def open_website(self, url):
         """Otevře webovou stránku v prohlížeči"""
         import webbrowser
         webbrowser.open(url)
+
+    def on_window_resize(self, event):
+        """Reaguje na změnu velikosti okna a upravuje šířku obsahu"""
+        # Pouze když se událost týká hlavního okna
+        if event.widget == self.root and hasattr(self, 'main_canvas'):
+            # Upravuje šířku scrollovatelného obsahu podle velikosti okna
+            canvas_width = event.width - 20  # Odečteme šířku scrollbaru
+            self.main_canvas.itemconfig(1, width=canvas_width)  # První item v canvas je náš rámec
 
 if __name__ == "__main__":
     try:

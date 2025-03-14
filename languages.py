@@ -105,6 +105,31 @@ pro fotoaparáty Canon, který rozšiřuje jejich možnosti.
     # Dialogy
     "select_firmware_file": "Vyberte stažený CHDK firmware",
     "select_folder": "Vyberte složku s CHDK",
+    
+    # Nové klíče
+    "card_compatibility": "Zkontrolovat kompatibilitu",
+    "card_compatible": "SD karta je kompatibilní",
+    "card_incompatible": "SD karta není kompatibilní",
+    "format_manually": "Formátujte SD kartu ručně ve Windows před použitím této aplikace.",
+    "check_compatibility": "Kontrola kompatibility",
+    "sd_requirements": "SD karta musí být ve formátu FAT32 a menší než 64 GB.",
+    "card_too_big": "SD karta je příliš velká (max 64 GB).",
+    "wrong_filesystem": "SD karta není ve formátu FAT32.",
+    "manual_format_instructions": "Formátování SD karty v počítači:",
+    "manual_format_steps": "1. Otevřete Průzkumník Windows\n2. Pravým tlačítkem klikněte na SD kartu\n3. Vyberte možnost 'Formátovat'\n4. V rozbalovacím seznamu vyberte 'FAT32'\n5. Klikněte na 'Spustit'",
+    "firmware_custom": "Vlastní firmware (stažený z internetu)",
+    "firmware_preinstalled": "Předinstalované CHDK firmware",
+    "model_select": "Vyberte model fotoaparátu ze seznamu:",
+    "no_preinstalled": "Žádné předinstalované firmware nejsou k dispozici",
+    "add_firmware": "Přidat nový firmware do databáze",
+    "model_name": "Název modelu",
+    "model_name_prompt": "Zadejte název modelu fotoaparátu (např. 'PowerShot A720 IS'):",
+    "model_name_empty": "Název modelu nemůže být prázdný",
+    "firmware_added": "Firmware přidán",
+    "firmware_added_success": "Firmware pro model {0} byl úspěšně přidán do databáze.",
+    "firmware_add_error": "Nepodařilo se přidat firmware: {0}",
+    "select_model": "Vyberte model fotoaparátu ze seznamu",
+    "select_firmware_add": "Vyberte firmware pro přidání do databáze"
 }
 
 # Anglický jazyk
@@ -210,4 +235,29 @@ for Canon cameras that extends their capabilities.
     # Dialogs
     "select_firmware_file": "Select downloaded CHDK firmware",
     "select_folder": "Select CHDK folder",
+    
+    # Nové klíče
+    "card_compatibility": "Check compatibility",
+    "card_compatible": "SD card is compatible",
+    "card_incompatible": "SD card is not compatible",
+    "format_manually": "Format the SD card manually in Windows before using this application.",
+    "check_compatibility": "Compatibility check",
+    "sd_requirements": "SD card must be in FAT32 format and less than 64 GB.",
+    "card_too_big": "SD card is too large (max 64 GB).",
+    "wrong_filesystem": "SD card is not in FAT32 format.",
+    "manual_format_instructions": "Formatting SD card on your computer:",
+    "manual_format_steps": "1. Open Windows Explorer\n2. Right-click on the SD card\n3. Select 'Format'\n4. From the dropdown menu, select 'FAT32'\n5. Click 'Start'",
+    "firmware_custom": "Custom firmware (downloaded from internet)",
+    "firmware_preinstalled": "Pre-installed CHDK firmware",
+    "model_select": "Select camera model from the list:",
+    "no_preinstalled": "No pre-installed firmware available",
+    "add_firmware": "Add new firmware to database",
+    "model_name": "Model name",
+    "model_name_prompt": "Enter camera model name (e.g. 'PowerShot A720 IS'):",
+    "model_name_empty": "Model name cannot be empty",
+    "firmware_added": "Firmware added",
+    "firmware_added_success": "Firmware for model {0} has been successfully added to the database.",
+    "firmware_add_error": "Failed to add firmware: {0}",
+    "select_model": "Select camera model from the list",
+    "select_firmware_add": "Select firmware to add to the database"
 }

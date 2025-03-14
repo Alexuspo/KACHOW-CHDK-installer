@@ -32,6 +32,14 @@ def main():
     except Exception as e:
         print(f"Varování: Nepodařilo se nainstalovat balíčky: {str(e)}")
     
+    # Příprava adresáře s ukázkovými modely
+    try:
+        from setup_models_directory import setup_models_directory
+        setup_models_directory()
+    except Exception as e:
+        print(f"Varování: Nepodařilo se připravit ukázkové modely: {str(e)}")
+        print("Pro vytvoření ukázkových modelů spusťte skript setup_models_directory.py")
+    
     print("\nProstředí připraveno. Nyní můžete spustit aplikaci pomocí 'python main.py'.")
     
     # Vytvoření prázdného souboru ikony, pokud neexistuje

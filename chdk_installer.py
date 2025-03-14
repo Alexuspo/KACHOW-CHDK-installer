@@ -101,10 +101,89 @@ def install_firmware_file(drive_letter, firmware_path):
 def extract_firmware_zip(zip_path, destination):
     """
     Extrahuje obsah ZIP souboru s firmwarem CHDK do cílové složky
+    Zpracovává různé formáty ZIP archivů, které mohou být k dispozici
     """
     try:
         with zipfile.ZipFile(zip_path, 'r') as z:
-            z.extractall(destination)
+            file_list = z.namelist()
+            
+            # Zjistíme strukturu ZIP archivu
+            has_diskboot = any(f.upper() == "DISKBOOT.BIN" for f in file_list)
+            has_chdk_dir = any(f.upper().startswith("CHDK/") for f in file_list)
+            has_root_dir = any("/" in f and not f.startswith(("CHDK/", "DISKBOOT")) for f in file_list)
+            
+            # Případy různých struktur ZIP archivů
+            if has_diskboot and has_chdk_dir:
+                # Ideální případ - ZIP obsahuje DISKBOOT.BIN a složku CHDK/
+                print(f"Standardní CHDK formát detekován v {os.path.basename(zip_path)}")
+                z.extractall(destination)
+            elif has_root_dir:
+                # ZIP obsahuje kořenový adresář - možná je to archiv celé SD karty
+                # Musíme najít DISKBOOT.BIN a CHDK adresář
+                print(f"Detekována složitější struktura v {os.path.basename(zip_path)}")
+                
+                # Najdeme kořenové adresáře obsahující CHDK soubory
+                root_dirs = set()
+                for fname in file_list:
+                    parts = fname.split('/')
+                    if len(parts) > 1:
+                        root_dirs.add(parts[0])
+                
+                for root_dir in root_dirs:
+                    # Zkontrolujeme, zda tento adresář obsahuje CHDK soubory
+                    diskboot_path = f"{root_dir}/DISKBOOT.BIN"
+                    chdk_dir_exists = any(f.startswith(f"{root_dir}/CHDK/") for f in file_list)
+                    
+                    if diskboot_path in file_list or chdk_dir_exists:
+                        print(f"Nalezena CHDK data v adresáři: {root_dir}")
+                        # Extrahujeme soubory z tohoto adresáře, ale odstraníme kořenový prefix
+                        for item in file_list:
+                            if item.startswith(f"{root_dir}/"):
+                                # Přeskakujeme adresářové záznamy
+                                if item.endswith('/'):
+                                    continue
+                                    
+                                # Extrahujeme soubor bez kořenového prefixu
+                                target_path = os.path.join(destination, item[len(root_dir)+1:])
+                                
+                                # Vytvoříme adresářovou strukturu, pokud neexistuje
+                                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                                
+                                # Extrahujeme soubor
+                                with z.open(item) as source, open(target_path, 'wb') as target:
+                                    shutil.copyfileobj(source, target)
+            else:
+                # Jiný formát, extrahujem vše a doufáme v nejlepší
+                print(f"Neznámá struktura ZIP souboru {os.path.basename(zip_path)}, extrahujeme vše")
+                z.extractall(destination)
+                
+            # Kontrola, zda byl firmware správně extrahován
+            if not os.path.exists(os.path.join(destination, "DISKBOOT.BIN")) and not os.path.exists(os.path.join(destination, "CHDK")):
+                print(f"Varování: V extrahovaných souborech nebyl nalezen DISKBOOT.BIN ani složka CHDK")
+                
+                # Hledání souborů v jakékoliv podadresářové struktuře
+                found_files = []
+                for root, dirs, files in os.walk(destination):
+                    if "DISKBOOT.BIN" in files:
+                        found_files.append(os.path.join(root, "DISKBOOT.BIN"))
+                    if "CHDK" in dirs:
+                        found_files.append(os.path.join(root, "CHDK"))
+                
+                if found_files:
+                    print(f"Nalezeny CHDK soubory v podadresářích: {found_files}")
+                    
+                    # Přesuneme soubory do kořenového adresáře
+                    for found_file in found_files:
+                        basename = os.path.basename(found_file)
+                        if os.path.exists(os.path.join(destination, basename)):
+                            shutil.rmtree(os.path.join(destination, basename))
+                        shutil.copytree(found_file, os.path.join(destination, basename))
+                    
+                    # Vyčistíme případné prázdné adresáře
+                    for root, dirs, files in os.walk(destination, topdown=False):
+                        if root != destination and not os.listdir(root):
+                            os.rmdir(root)
+            
     except zipfile.BadZipFile:
         raise ValueError(f"Soubor {zip_path} není platný ZIP archiv")
     except Exception as e:
