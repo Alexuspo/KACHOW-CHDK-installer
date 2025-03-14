@@ -270,19 +270,21 @@ class CHDKInstallerApp:
         card_info_frame = ttk.Frame(sd_frame)
         card_info_frame.pack(fill=tk.X, pady=5)
         
-        # Přidání tlačítka pro kontrolu kompatibility
-        check_button = ttk.Button(card_info_frame, text="Zkontrolovat kompatibilitu",
-                               command=self.check_card_compatibility)
+        # Přidání tlačítka pro kontrolu kompatibility - oprava textu pomocí jazykových klíčů
+        check_button = ttk.Button(card_info_frame, 
+                          text=self.strings["card_compatibility"],
+                          command=self.check_card_compatibility)
         check_button.pack(side=tk.LEFT, padx=5)
         
-        # Přidání tlačítka pro nastavení bootovatelnosti
-        bootable_button = ttk.Button(card_info_frame, text="Nastavit bootovatelnost",
-                                  command=self.make_card_bootable)
+        # Přidání tlačítka pro nastavení bootovatelnosti - oprava textu pomocí jazykových klíčů
+        bootable_button = ttk.Button(card_info_frame, 
+                             text=self.strings["bootable_button"],
+                             command=self.make_card_bootable)
         bootable_button.pack(side=tk.LEFT, padx=5)
         
         # Varování
         warning_label = ttk.Label(sd_frame, 
-                              text="SD karta musí být ve formátu FAT32 a menší než 64 GB. Formátujte kartu ručně před použitím aplikace.",
+                              text=self.strings["sd_warning_text"],
                               style="Warning.TLabel", wraplength=550)
         warning_label.pack(fill=tk.X, pady=5)
         
@@ -299,7 +301,7 @@ class CHDKInstallerApp:
         # Radiobutton pro vlastní firmware
         custom_radio = ttk.Radiobutton(
             firmware_selection_frame, 
-            text="Vlastní firmware (stažený z internetu)", 
+            text=self.strings["firmware_custom"], 
             variable=self.firmware_source_var, 
             value="custom",
             command=self.toggle_firmware_source
@@ -309,7 +311,7 @@ class CHDKInstallerApp:
         # Radiobutton pro předinstalované firmware
         preinstalled_radio = ttk.Radiobutton(
             firmware_selection_frame, 
-            text="Předinstalované CHDK firmware", 
+            text=self.strings["firmware_preinstalled"], 
             variable=self.firmware_source_var, 
             value="preinstalled",
             command=self.toggle_firmware_source
@@ -362,7 +364,7 @@ class CHDKInstallerApp:
         # Informace o předinstalovaných firmwarech
         model_info_label = ttk.Label(
             self.preinstalled_firmware_frame, 
-            text="Vyberte model fotoaparátu ze seznamu:",
+            text=self.strings["model_select"],
             wraplength=550
         )
         model_info_label.pack(fill=tk.X, pady=5)
@@ -389,13 +391,13 @@ class CHDKInstallerApp:
             
         # Pokud nejsou k dispozici žádné předinstalované modely, přidáme informaci
         if not available_models:
-            self.models_listbox.insert(tk.END, "Žádné předinstalované firmware nejsou k dispozici")
+            self.models_listbox.insert(tk.END, self.strings["no_preinstalled"])
             self.models_listbox.config(state=tk.DISABLED)
         
         # Tlačítko pro přidání nového firmwaru
         add_firmware_button = ttk.Button(
             self.preinstalled_firmware_frame, 
-            text="Přidat nový firmware do databáze",
+            text=self.strings["add_firmware"],
             command=self.add_new_firmware
         )
         add_firmware_button.pack(pady=5)
@@ -431,10 +433,10 @@ class CHDKInstallerApp:
         """Přidá nový firmware do databáze"""
         # Vybereme soubor nebo složku
         firmware_path = filedialog.askopenfilename(
-            title="Vyberte firmware pro přidání do databáze",
+            title=self.strings["add_firmware_title"],
             filetypes=[
                 ("CHDK firmware (zip)", "*.zip"),
-                ("Všechny soubory", "*.*")
+                (self.strings["all_files"], "*.*")
             ]
         )
         
@@ -445,26 +447,25 @@ class CHDKInstallerApp:
         model_name = None
         while not model_name:
             model_name = simpledialog.askstring(
-                "Název modelu", 
-                "Zadejte název modelu fotoaparátu (např. 'PowerShot A720 IS'):",
+                self.strings["model_name_dialog_title"], 
+                self.strings["model_name_prompt"],
                 parent=self.root
             )
             if model_name is None:  # uživatel klikl na Cancel
                 return
-            
+                
             if not model_name.strip():
-                messagebox.showerror("Chyba", "Název modelu nemůže být prázdný")
+                messagebox.showerror(self.strings["firmware_add_error_title"], 
+                                   self.strings["model_name_empty"])
                 model_name = None
-        
+    
         try:
             # Přidání firmware do databáze
             self.models_manager.add_firmware(firmware_path, model_name)
-            
             # Aktualizace seznamu modelů
             self.models_listbox.delete(0, tk.END)
             for model in self.models_manager.get_available_models():
                 self.models_listbox.insert(tk.END, model)
-            
             messagebox.showinfo(
                 "Firmware přidán", 
                 f"Firmware pro model {model_name} byl úspěšně přidán do databáze."
@@ -478,14 +479,14 @@ class CHDKInstallerApp:
         help_scroll = ttk.Scrollbar(parent_frame)
         help_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         
-        help_text_box = tk.Text(parent_frame, wrap=tk.WORD, height=25,  # Zvětšeno z 15 na 25
-                             yscrollcommand=help_scroll.set, bg="#ffffff", padx=15, pady=15)  # Zvětšené padx a pady z 10 na 15
+        help_text_box = tk.Text(parent_frame, wrap=tk.WORD, height=25,
+                             yscrollcommand=help_scroll.set, bg="#ffffff", padx=15, pady=15)
         help_text_box.insert(tk.END, self.strings["help_text"])
         help_text_box.config(state=tk.DISABLED)  # Jen pro čtení
         help_text_box.pack(fill=tk.BOTH, expand=True)
         
         help_scroll.config(command=help_text_box.yview)
-    
+
     def setup_about_tab(self, parent_frame):
         """Nastavení obsahu záložky O aplikaci"""
         about_frame = ttk.Frame(parent_frame)
@@ -519,7 +520,7 @@ class CHDKInstallerApp:
                              foreground="blue", cursor="hand2")
         github_label.pack(pady=5)
         github_label.bind("<Button-1>", lambda e: self.open_website("https://github.com/Alexuspo/KACHOW-CHDK-installer"))
-    
+
     def refresh_drives(self):
         self.status_var.set(self.strings["loading_drives"])
         self.progress_var.set(10)
@@ -541,14 +542,13 @@ class CHDKInstallerApp:
             
             self.progress_var.set(100)
             self.root.after(1000, lambda: self.progress_var.set(0))
-            
         except Exception as e:
             # Zachycení a zobrazení chyby
             self.status_var.set(f"{self.strings['error']}: {str(e)}")
             self.progress_var.set(0)
             messagebox.showerror(self.strings["error"], 
                               self.strings["load_drives_error"].format(str(e)))
-    
+
     def browse_firmware_file(self):
         """Výběr staženého souboru s firmwarem CHDK"""
         filetypes = [
@@ -556,7 +556,7 @@ class CHDKInstallerApp:
             ("Všechny soubory", "*.*")
         ]
         firmware_file = filedialog.askopenfilename(
-            title="Vyberte stažený CHDK firmware",  # Použití pevného textu místo klíče
+            title=self.strings["select_firmware_title"],
             filetypes=filetypes
         )
         if firmware_file:
@@ -571,7 +571,9 @@ class CHDKInstallerApp:
             self.browse_button.config(state="disabled")
 
     def browse_folder(self):
-        folder_path = filedialog.askdirectory(title="Vyberte složku s CHDK")  # Použití pevného textu místo klíče
+        folder_path = filedialog.askdirectory(
+            title=self.strings["select_folder_title"]
+        )
         if folder_path:
             self.custom_folder_entry.delete(0, tk.END)
             self.custom_folder_entry.insert(0, folder_path)
@@ -602,20 +604,18 @@ class CHDKInstallerApp:
         is_compatible, error_message = check_drive_compatibility(selected_drive)
         
         if not is_compatible:
-            # Nabídneme uživateli možnost přeskočit kontrolu a pokračovat
+            # Nabídneme uživateli možnost přeskočit kontrolu a pokračovat - použití jazykových klíčů
             force_result = messagebox.askyesno(
-                "Nekompabilní SD karta", 
-                f"{error_message}\n\nChcete přesto pokračovat s instalací CHDK?\n"
-                "(Použijte tuto volbu pouze pokud víte, že karta je naformátována správně)"
+                self.strings["incompatible_card"], 
+                f"{error_message}\n\n{self.strings['incompatible_continue']}"
             )
             if not force_result:
                 return
         
         # Confirm installation
         result = messagebox.askyesno(
-            "Instalace CHDK", 
-            f"Opravdu chcete nainstalovat CHDK na SD kartu {selected_drive}?\n\n"
-            "SD karta bude nastavena jako bootovatelná a budou na ni nahrány soubory CHDK."
+            self.strings["installation_title"], 
+            self.strings["confirm_installation"].format(selected_drive)
         )
         if not result:
             return
@@ -673,7 +673,7 @@ class CHDKInstallerApp:
             messagebox.showerror(self.strings["error"], self.strings["select_card"])
             return
         
-        self.status_var.set("Kontroluji kompatibilitu...")
+        self.status_var.set(self.strings["checking_compatibility"])
         self.progress_var.set(30)
         self.root.update_idletasks()
         
@@ -684,42 +684,39 @@ class CHDKInstallerApp:
                 # Pokud je vráceno varování (kompatibilní, ale s výhradou)
                 if error_message and error_message.startswith("VAROVÁNÍ"):
                     self.progress_var.set(80)
-                    self.status_var.set("Karta může být kompatibilní")
+                    self.status_var.set(self.strings["card_maybe_compatible"])
                     messagebox.showwarning(
-                        "Možná kompatibilní", 
-                        f"{error_message}\n\nMůžete zkusit pokračovat s instalací."
+                        self.strings["maybe_compatible"], 
+                        f"{error_message}\n\n{self.strings['try_installation']}"
                     )
                     self.root.after(1000, lambda: self.progress_var.set(0))
                 else:
                     self.progress_var.set(100)
-                    self.status_var.set("Karta je kompatibilní")
+                    self.status_var.set(self.strings["card_compatible"])
                     messagebox.showinfo(
-                        "Kontrola kompatibility", 
-                        f"SD karta {selected_drive} je kompatibilní s CHDK.\n\n"
-                        "Můžete pokračovat nastavením bootovatelnosti a instalací CHDK."
+                        self.strings["check_compatibility"], 
+                        f"{self.strings['card_compatible_msg'].format(selected_drive)}"
                     )
                     self.root.after(1000, lambda: self.progress_var.set(0))
             else:
                 # Nabídneme uživateli možnost přeskočit kontrolu a pokračovat
                 force_result = messagebox.askyesno(
-                    "Nekompabilní SD karta", 
-                    f"{error_message}\n\nChcete přesto označit kartu jako kompatibilní?\n"
-                    "(Použijte tuto volbu pouze pokud víte, že karta je naformátována správně)"
+                    self.strings["incompatible_card"], 
+                    f"{error_message}\n\n{self.strings['skip_check_question']}"
                 )
                 
                 if force_result:
                     self.progress_var.set(100)
-                    self.status_var.set("Karta označena jako kompatibilní")
+                    self.status_var.set(self.strings["card_marked_compatible"])
                     messagebox.showinfo(
-                        "Kontrola přeskočena", 
-                        f"SD karta {selected_drive} byla ručně označena jako kompatibilní.\n\n"
-                        "Můžete pokračovat nastavením bootovatelnosti a instalací CHDK."
+                        self.strings["skip_check"], 
+                        self.strings["card_manually_marked"].format(selected_drive)
                     )
                     self.root.after(1000, lambda: self.progress_var.set(0))
                 else:
                     self.progress_var.set(0)
-                    self.status_var.set(f"Karta není kompatibilní: {error_message}")
-                    messagebox.showerror("Kontrola kompatibility", error_message)
+                    self.status_var.set(f"{self.strings['card_incompatible']}: {error_message}")
+                    messagebox.showerror(self.strings["check_compatibility"], error_message)
             
         except Exception as e:
             self.progress_var.set(0)
@@ -741,8 +738,8 @@ class CHDKInstallerApp:
         try:
             make_bootable(selected_drive)
             self.progress_var.set(100)
-            self.status_var.set("Bootovatelnost nastavena")
-            messagebox.showinfo(self.strings["success"], "SD karta byla úspěšně nastavena jako bootovatelná!")
+            self.status_var.set(self.strings["bootable_set"])
+            messagebox.showinfo(self.strings["success"], self.strings["bootable_success"])
             self.root.after(2000, lambda: self.progress_var.set(0))
         except Exception as e:
             self.progress_var.set(0)
@@ -752,15 +749,8 @@ class CHDKInstallerApp:
     def format_card(self):
         """Zobrazí instrukce pro ruční formátování SD karty"""
         messagebox.showinfo(
-            "Ruční formátování SD karty",
-            "Aplikace již nepodporuje automatické formátování SD karet.\n\n"
-            "Pro formátování SD karty prosím postupujte takto:\n"
-            "1. Otevřete Průzkumník Windows\n"
-            "2. Pravým tlačítkem klikněte na SD kartu\n"
-            "3. Zvolte možnost 'Formátovat...'\n"
-            "4. Vyberte formát 'FAT32'\n"
-            "5. Klikněte na 'Spustit'\n\n"
-            "Po formátování můžete pokračovat nastavením bootovatelnosti a instalací CHDK."
+            self.strings["manual_format_title"],
+            self.strings["manual_format_instructions"]
         )
 
     def open_website(self, url):
